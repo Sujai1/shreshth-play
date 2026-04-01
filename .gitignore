@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# W&B
+wandb/
+wandb_local_runs/
+
+# Experiment outputs
+outputs/
+results/
+analysis/*/histories/
+
+# EC2
+ec2/.instances
+
+# Environment
+.env
+*.pem
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

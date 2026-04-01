@@ -1,0 +1,73 @@
+# ─────────────────────────────────────────────────────────────
+# experiment.yaml — Project-level experiment configuration
+#
+# This file is the contract between your project and the
+# /prepare-env, /run-experiment, and /run-sweep skills.
+#
+# Copy this template into your project root as experiment.yaml
+# and fill in the values for your specific project.
+# ─────────────────────────────────────────────────────────────
+
+# ── Environment: what gets installed on the EC2 instance ─────
+env:
+  # Base AMI to start from.
+  #   "latest-dlami" → resolves the latest AWS Deep Learning AMI (default)
+  #   "ami-xxxxx"    → a specific AMI ID (e.g. one of your existing custom AMIs)
+  base_ami: "latest-dlami"
+
+  # Custom AMI created by /prepare-env (auto-populated — don't edit manually)
+  snapshot_ami: null
+
+  # Path to pip requirements file (relative to project root)
+  requirements: "requirements.txt"
+
+  # Optional shell script for system-level setup (apt packages, CUDA libs, etc.)
+  # Runs after pip install. Set to null if not needed.
+  setup_script: null
+
+  # Extra pip packages always installed (wandb is always included automatically)
+  extra_pip: []
+
+# ── Experiment: how a single training run works ──────────────
+experiment:
+  # The command to run for training (executed from project root on EC2)
+  train_command: "python train.py"
+
+  # Default EC2 instance type for single experiments
+  instance_type: "g4dn.xlarge"
+
+  # W&B configuration
+  wandb_entity: "hiremath-sujai1"
+  wandb_project: "my-project"
+
+  # Directory on EC2 where training outputs are saved (relative to project root)
+  results_dir: "outputs"
+
+  # Files/dirs to exclude when syncing code to EC2
+  sync_exclude:
+    - "__pycache__"
+    - ".git"
+    - "results/"
+    - "wandb/"
+    - "*.pyc"
+    - ".instances"
+
+# ── Sweep: how to run many experiments ───────────────────────
+sweep:
+  # Hyperparameter grid — all combinations will be tested
+  # Each key is a CLI argument name, each value is a list of values to try
+  hyperparams:
+    learning_rate: [1e-3, 1e-4, 1e-5]
+    batch_size: [32, 64]
+
+  # How hyperparams are passed to the train command:
+  #   "argparse" → --learning_rate 1e-3 --batch_size 32
+  #   "env"      → LEARNING_RATE=1e-3 BATCH_SIZE=32 python train.py
+  hyperparam_mode: "argparse"
+
+  # Max EC2 instances to run in parallel (budget control)
+  # If total trials > this, experiments run sequentially on each instance
+  max_parallel_instances: 3
+
+  # Instance type override for sweep runs (null = use experiment.instance_type)
+  instance_type: null

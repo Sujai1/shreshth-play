@@ -1,0 +1,33 @@
+# ─────────────────────────────────────────────────────────────
+# experiment.yaml — Adam vs Muon optimizer comparison
+# ─────────────────────────────────────────────────────────────
+
+env:
+  base_ami: "latest-dlami"
+  snapshot_ami: "ami-0ac007967bf912666"
+  requirements: "optimizer_comparison/requirements.txt"
+  setup_script: null
+  extra_pip: []
+
+experiment:
+  train_command: "python optimizer_comparison/train.py"
+  instance_type: "t3.medium"
+  wandb_entity: "hiremath-sujai1"
+  wandb_project: "adam-vs-muon"
+  results_dir: "outputs"
+  sync_exclude:
+    - "__pycache__"
+    - ".git"
+    - "results/"
+    - "wandb/"
+    - "*.pyc"
+    - ".instances"
+
+sweep:
+  hyperparams:
+    optimizer: [adam, muon]
+    learning_rate: [0.01, 0.003, 0.001]
+    seed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  hyperparam_mode: "argparse"
+  max_parallel_instances: 6
+  instance_type: "t3.medium"
