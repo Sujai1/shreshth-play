@@ -1,4 +1,3 @@
-/* Reset & Base */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
@@ -14,7 +13,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Nav */
 nav {
   position: sticky;
   top: 0;
@@ -39,7 +37,6 @@ nav a {
 
 nav a:hover { color: #2563eb; }
 
-/* Layout */
 .container {
   max-width: 720px;
   margin: 0 auto;
@@ -48,7 +45,6 @@ nav a:hover { color: #2563eb; }
 
 section { margin-bottom: 4rem; }
 
-/* Hero */
 header {
   text-align: center;
   padding: 4rem 0 2rem;
@@ -83,7 +79,6 @@ header .links a {
 
 header .links a:hover { border-bottom-color: #2563eb; }
 
-/* Headings */
 h2 {
   font-size: 1.5rem;
   font-weight: 600;
@@ -99,22 +94,18 @@ h3 {
   color: #374151;
 }
 
-/* Text */
 p { margin-bottom: 1rem; }
-
 a { color: #2563eb; }
-
 strong { font-weight: 600; }
 
 code {
-  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, monospace;
+  font-family: 'SF Mono', 'Fira Code', Menlo, monospace;
   font-size: 0.85em;
   background: #f3f4f6;
   padding: 0.15em 0.35em;
   border-radius: 3px;
 }
 
-/* Callout */
 .callout {
   background: #eff6ff;
   border-left: 4px solid #2563eb;
@@ -132,9 +123,7 @@ code {
   margin-top: 0.5rem;
 }
 
-.callout .stat {
-  text-align: center;
-}
+.callout .stat { text-align: center; }
 
 .callout .stat .value {
   font-size: 1.5rem;
@@ -150,7 +139,6 @@ code {
   letter-spacing: 0.04em;
 }
 
-/* Table */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -183,10 +171,7 @@ td:nth-child(n+2) {
 
 .highlight-row { background: #f0fdf4; }
 
-/* Figures */
-figure {
-  margin: 2rem 0;
-}
+figure { margin: 2rem 0; }
 
 figure img {
   width: 100%;
@@ -202,7 +187,6 @@ figcaption {
   text-align: center;
 }
 
-/* Anomaly section */
 .anomaly {
   background: #fefce8;
   border-left: 4px solid #ca8a04;
@@ -213,7 +197,6 @@ figcaption {
 
 .anomaly p:last-child { margin-bottom: 0; }
 
-/* Footer */
 footer {
   border-top: 1px solid #e5e7eb;
   padding: 2rem 0;
@@ -225,7 +208,6 @@ footer {
 
 footer a { color: #6b7280; }
 
-/* Responsive */
 @media (max-width: 768px) {
   html { font-size: 16px; }
   header h1 { font-size: 1.75rem; }

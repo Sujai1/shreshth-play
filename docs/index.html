@@ -17,7 +17,7 @@
     <a href="#convergence">Convergence</a>
     <a href="#runtime">Runtime</a>
     <a href="#head-to-head">Head-to-Head</a>
-    <a href="#anomaly">Anomaly</a>
+    <a href="#notable-findings">Findings</a>
     <a href="#conclusions">Conclusions</a>
 </nav>
 
@@ -36,22 +36,21 @@
 <section id="introduction">
     <h2>Introduction</h2>
     <p>
-        <strong>Muon</strong> is a recently proposed optimizer that uses orthogonalized momentum updates on weight matrices.
-        Instead of the element-wise adaptive learning rates that Adam computes, Muon applies Newton's method in the
-        spectral domain of each weight matrix, effectively normalizing the update direction via an approximate matrix
-        inverse square root. It was designed for large-scale language model pretraining, where it has shown promising
-        results in faster convergence.
+        <strong>Muon</strong> is a recently proposed optimizer that applies orthogonalized momentum updates to weight
+        matrices. Rather than computing element-wise adaptive learning rates like Adam, Muon uses Newton's method in the
+        spectral domain&mdash;effectively normalizing update directions via an approximate matrix inverse square root.
+        It was designed for large-scale language model pretraining, where it has shown promise in accelerating convergence.
     </p>
     <p>
-        <strong>Adam</strong> needs no introduction&mdash;it is the default optimizer for most of deep learning,
-        combining momentum with per-parameter adaptive learning rates. Any new optimizer must justify itself against Adam
-        on practical grounds: does it train better, faster, or more reliably?
+        <strong>Adam</strong> is the ubiquitous default: momentum combined with per-parameter adaptive learning rates,
+        battle-tested across nearly every domain of deep learning. Any new optimizer must demonstrate clear advantages
+        over Adam to justify adoption.
     </p>
     <p>
-        This experiment puts them head-to-head on a deliberately simple task: tabular regression on the California Housing
-        dataset with a 4-layer MLP. This is <em>not</em> the domain Muon was designed for&mdash;which makes it a useful
-        stress test. If Muon can match Adam here, it suggests broad applicability. If it can't, we can examine <em>why</em>
-        and what trade-offs emerge.
+        We pit them against each other on a deliberately simple task: tabular regression on the California Housing
+        dataset with a 4-layer MLP. This is <em>not</em> Muon's intended domain, which makes it a useful stress
+        test. Does Muon's spectral approach generalize beyond large-scale training? And even if Adam wins on the
+        headline metric, does Muon reveal any interesting properties worth investigating further?
     </p>
 </section>
 
@@ -62,30 +61,36 @@
     <h3>Model</h3>
     <p>
         A 4-layer MLP with batch normalization: <code>8 &rarr; 256 &rarr; 128 &rarr; 64 &rarr; 1</code>.
-        Each hidden layer uses BatchNorm followed by ReLU. The input dimension of 8 corresponds to the 8 features
-        in the California Housing dataset (median income, house age, average rooms, etc.).
+        Each hidden layer applies BatchNorm followed by ReLU. The 8 input features correspond to California
+        Housing census attributes (median income, house age, average rooms, etc.).
     </p>
 
     <h3>Dataset</h3>
     <p>
-        <strong>California Housing</strong> (scikit-learn): 20,640 samples of California census block groups, predicting
-        median house value. Split 80/20 for train/validation with per-seed random splits. Features are standardized
-        with <code>StandardScaler</code> (fit on train, applied to both).
+        <strong>California Housing</strong> from scikit-learn: 20,640 samples predicting median house value.
+        80/20 train/validation split with per-seed random shuffling. Features standardized with
+        <code>StandardScaler</code> (fit on train, applied to both splits).
     </p>
 
     <h3>Hyperparameter Grid</h3>
     <p>
-        We swept over <strong>2 optimizers</strong> (Adam, Muon) &times; <strong>3 learning rates</strong>
-        (0.001, 0.003, 0.01) &times; <strong>10 random seeds</strong> (0&ndash;9), giving <strong>60 total runs</strong>.
-        All runs trained for 100 epochs with batch size 64 and MSE loss.
+        <strong>2 optimizers</strong> (Adam, Muon) &times; <strong>3 learning rates</strong>
+        (0.001, 0.003, 0.01) &times; <strong>10 random seeds</strong> (0&ndash;9) = <strong>60 total runs</strong>.
+        All trained for 100 epochs with batch size 64 and MSE loss.
     </p>
 
-    <h3>Muon's Hybrid Setup</h3>
+    <h3>Muon's Hybrid Optimizer</h3>
     <p>
-        A key implementation detail: Muon only operates on tensors with 2 or more dimensions (weight matrices).
-        For 1D parameters&mdash;biases and batch normalization parameters&mdash;a separate Adam optimizer handles updates
-        (with <code>weight_decay=0.01</code>). This is the standard recommended configuration. Adam, by contrast,
-        receives all parameters in a single optimizer with no weight decay.
+        A key detail: Muon only operates on tensors with 2+ dimensions (weight matrices). Biases and batch
+        normalization parameters (1D tensors) are handled by a separate Adam optimizer with
+        <code>weight_decay=0.01</code>. Adam, by contrast, receives all parameters in a single optimizer
+        with no weight decay. This is the standard recommended Muon configuration.
+    </p>
+
+    <h3>Infrastructure</h3>
+    <p>
+        All 60 trials ran on AWS EC2 <code>t3.medium</code> instances (CPU only), logged to
+        Weights &amp; Biases under the <code>adam-vs-muon</code> project.
     </p>
 </section>
 
@@ -167,10 +172,11 @@
     </table>
 
     <p>
-        The top four configurations are separated by less than 0.003 in R&sup2;&mdash;a remarkably tight cluster.
-        The story is not that one optimizer dominates overwhelmingly, but that Adam achieves comparable or better
-        results at a fraction of the runtime. The gap between the two optimizers is <em>learning-rate-dependent</em>:
-        nearly zero at lr=0.001, and widening as the learning rate increases.
+        The top four configurations land within 0.003 of each other in R&sup2;&mdash;a tight cluster.
+        Adam is the practical winner: comparable or better R&sup2; at a fraction of the compute. But the
+        gap between the two optimizers is <em>learning-rate-dependent</em>&mdash;nearly zero at lr=0.001,
+        widening significantly at lr=0.01. This hints that Muon's story is more nuanced than a simple
+        "Adam wins."
     </p>
 </section>
 
@@ -180,20 +186,19 @@
 
     <figure>
         <img src="plots/01_metric_boxplot.png" alt="Box plot of best validation R-squared across configurations" loading="lazy">
-        <figcaption>Figure 1: Distribution of best validation R&sup2; across 10 seeds for each optimizer-learning rate combination.</figcaption>
+        <figcaption>Figure 1: Distribution of best validation R&sup2; across 10 seeds per configuration.</figcaption>
     </figure>
 
     <p>
-        This box plot reveals the <strong>stability story</strong>. Adam's two best configurations (lr=0.003 and lr=0.001)
-        produce tight distributions with small interquartile ranges, meaning you can rely on getting consistent results
-        regardless of random seed. Muon at lr=0.001 is similarly tight&mdash;and its median is essentially
-        indistinguishable from Adam.
+        This box plot tells the <strong>stability story</strong>. Adam at lr=0.003 and lr=0.001 produces tight,
+        reliable distributions&mdash;you get consistent results regardless of random seed. Muon at lr=0.001 is
+        similarly stable and its median is essentially indistinguishable from Adam's best.
     </p>
     <p>
-        The outlier is <strong>Muon at lr=0.01</strong>: the widest box, the lowest median, and individual runs dipping
-        below 0.72. This suggests Muon is significantly more sensitive to high learning rates on this architecture.
-        Where Adam degrades gracefully at lr=0.01 (R&sup2; drops only 0.005 from its best), Muon degrades sharply
-        (dropping 0.029).
+        The outlier is <strong>Muon at lr=0.01</strong>: widest spread, lowest median, with individual runs
+        dipping below R&sup2;=0.72. Muon is significantly more sensitive to high learning rates on this
+        architecture. Adam degrades gracefully at lr=0.01 (R&sup2; drops 0.005 from its peak), while Muon
+        degrades sharply (dropping 0.029). If you're using Muon, learning rate tuning is critical.
     </p>
 </section>
 
@@ -203,51 +208,46 @@
 
     <figure>
         <img src="plots/02_loss_curves.png" alt="Train and validation loss curves over 100 epochs" loading="lazy">
-        <figcaption>Figure 2: Train loss (left) and validation loss (right) over 100 epochs. Shaded regions show &plusmn;1 standard deviation across seeds.</figcaption>
+        <figcaption>Figure 2: Train loss (left) and validation loss (right) over 100 epochs. Shaded regions show &plusmn;1 std across seeds.</figcaption>
     </figure>
 
     <p>
-        The loss curves reveal the training behavior behind the final numbers. All configurations converge in
-        training loss within the first 20&ndash;30 epochs. But the <em>level</em> they converge to differs: Adam
-        configurations generally achieve lower training loss than their Muon counterparts at the same learning rate.
+        All configurations converge in training loss within the first 20&ndash;30 epochs. But the <em>level</em>
+        they settle at differs: Adam configurations reach lower training loss than their Muon counterparts at
+        every learning rate.
     </p>
     <p>
-        This is where it gets interesting. Despite Muon's <em>higher</em> training loss, its validation loss
-        at lr=0.001 is actually the <em>lowest</em> of any configuration. This is a hallmark of
-        <strong>implicit regularization</strong>&mdash;Muon doesn't fit the training data as aggressively,
-        which translates to better generalization as measured by validation loss. The orthogonalization step
-        constrains the weight updates in a way that acts like a regularizer.
+        Here is where Muon gets interesting. Despite <em>higher</em> training loss, Muon at lr=0.001 achieves
+        the <em>lowest</em> validation loss of any configuration. This is the signature of
+        <strong>implicit regularization</strong>&mdash;Muon's orthogonalization step constrains weight updates
+        in a way that prevents overfitting, even without explicit regularization on the Adam side.
+        The model generalizes better precisely because it doesn't memorize the training data as aggressively.
     </p>
     <p>
-        Also notable: the shaded uncertainty bands for Muon configurations are wider, especially at higher learning
-        rates. This confirms the stability finding from the box plots&mdash;Muon's training trajectories vary more
-        across random seeds.
+        The wider shaded bands on Muon configurations confirm higher variance across seeds&mdash;its training
+        trajectories are less deterministic, particularly at higher learning rates.
     </p>
 </section>
 
-<!-- Plot 3: R² Convergence -->
+<!-- Plot 3: Convergence -->
 <section id="convergence">
     <h2>R&sup2; Convergence</h2>
 
     <figure>
         <img src="plots/03_primary_curves.png" alt="Validation R-squared convergence over epochs" loading="lazy">
-        <figcaption>Figure 3: Best validation R&sup2; over training epochs (monotonically non-decreasing). Mean &plusmn; std across seeds.</figcaption>
+        <figcaption>Figure 3: Best validation R&sup2; over training epochs (monotonically non-decreasing).</figcaption>
     </figure>
 
     <p>
-        The convergence curves show how quickly each configuration reaches its final performance. All configurations
-        enter the R&sup2; &gt; 0.75 range by epoch 20, but the fine-grained ranking takes another 40&ndash;60 epochs
-        to stabilize.
+        All configurations cross the R&sup2; &gt; 0.75 threshold by epoch 20, but fine-grained separation
+        takes another 40&ndash;60 epochs to stabilize. The Adam and Muon curves at lr=0.001 are nearly
+        perfectly overlapping&mdash;same convergence rate, same final level.
     </p>
     <p>
-        At lr=0.001, the Adam and Muon curves are nearly perfectly overlapping&mdash;both converge at the same rate
-        to the same level. The divergence only becomes visible at lr=0.003 (small gap) and lr=0.01 (large gap).
-        This reinforces a key finding: <strong>the optimizer gap is entirely learning-rate-dependent</strong>.
-        With proper tuning, Muon matches Adam's R&sup2; performance exactly.
-    </p>
-    <p>
-        The wider uncertainty bands for Muon at lr=0.01 confirm that its instability isn't just in the final
-        metric&mdash;the entire training trajectory is more variable across seeds.
+        Divergence appears at lr=0.003 (small gap) and becomes dramatic at lr=0.01 (Muon plateaus noticeably
+        lower with wider uncertainty bands). The key insight: <strong>the optimizer gap is entirely
+        learning-rate-dependent</strong>. With careful tuning, Muon matches Adam's R&sup2; exactly. The
+        question is whether that tuning sensitivity is acceptable in practice.
     </p>
 </section>
 
@@ -256,24 +256,21 @@
     <h2>Runtime Cost</h2>
 
     <figure>
-        <img src="plots/04_runtime.png" alt="Wall-clock runtime comparison" loading="lazy">
+        <img src="plots/04_runtime.png" alt="Wall-clock runtime comparison by configuration" loading="lazy">
         <figcaption>Figure 4: Wall-clock runtime per trial. Adam: 78&ndash;98s. Muon: 327&ndash;477s.</figcaption>
     </figure>
 
     <p>
-        This is where Adam's practical advantage is most stark. Adam completes a full 100-epoch training run in
-        under 2 minutes. Muon takes 5&ndash;8 minutes for the same workload&mdash;a <strong>4&ndash;6&times; slowdown</strong>.
+        Adam completes 100 epochs in under 2 minutes. Muon takes 5&ndash;8 minutes for identical
+        workloads&mdash;a <strong>4&ndash;6&times; slowdown</strong>. The overhead comes from Muon's
+        orthogonalization step: SVD-like operations on each weight matrix at every optimizer step.
     </p>
     <p>
-        The overhead comes from Muon's orthogonalization step, which performs SVD-like operations on each weight
-        matrix at every update. On the CPU-only <code>t3.medium</code> instances used here, this is particularly
-        expensive. On GPU hardware with optimized linear algebra kernels, the relative overhead would likely
-        be smaller&mdash;but on CPU, it's substantial.
-    </p>
-    <p>
-        For this experiment, where the best Muon configuration matches Adam's R&sup2; exactly, the runtime cost
-        is hard to justify. You'd need Muon to deliver meaningfully <em>better</em> results to warrant 4&ndash;6&times;
-        longer training.
+        On the CPU-only <code>t3.medium</code> instances used here, this overhead is particularly pronounced.
+        GPU hardware with optimized BLAS kernels would reduce the relative gap, but on CPU the cost is stark.
+        When Muon's best configuration merely <em>matches</em> Adam's R&sup2;, spending 4&ndash;6&times; longer
+        to get there is a hard sell. Muon would need to deliver meaningfully better results to justify the
+        compute premium.
     </p>
 </section>
 
@@ -282,53 +279,48 @@
     <h2>Head-to-Head by Learning Rate</h2>
 
     <figure>
-        <img src="plots/05_head_to_head.png" alt="Head-to-head comparison of Adam vs Muon at each learning rate" loading="lazy">
-        <figcaption>Figure 5: Direct comparison at each learning rate. Adam wins at every level, but the margin varies dramatically.</figcaption>
+        <img src="plots/05_head_to_head.png" alt="Adam vs Muon at each learning rate" loading="lazy">
+        <figcaption>Figure 5: Direct comparison at each learning rate. Adam wins at every level, but margins vary dramatically.</figcaption>
     </figure>
 
     <p>
-        This is perhaps the most informative plot. At <strong>lr=0.001</strong>, the two optimizers are
-        statistically tied: 0.8060 vs 0.8059&mdash;a difference well within noise. At <strong>lr=0.003</strong>,
-        Adam leads by 0.0028, a small but consistent gap. At <strong>lr=0.01</strong>, the gap explodes to
-        0.0248, with Muon clearly struggling.
+        At <strong>lr=0.001</strong>, the optimizers are statistically tied: 0.8060 vs 0.8059. At
+        <strong>lr=0.003</strong>, Adam leads by 0.0028&mdash;small but consistent. At <strong>lr=0.01</strong>,
+        the gap explodes to 0.0248 with Muon clearly struggling.
     </p>
     <p>
-        The pattern is clear: <strong>Muon needs lower learning rates than Adam for stable convergence</strong>
-        on this architecture. This makes sense given Muon's update mechanism&mdash;the orthogonalized momentum
-        already imposes a form of update normalization, so pairing it with an aggressive learning rate leads
-        to overshooting. Adam's per-element adaptivity is more forgiving of higher learning rates.
+        The pattern reveals that <strong>Muon needs lower learning rates than Adam</strong> for stable
+        convergence. This is intuitive: Muon's orthogonalized momentum already normalizes the update
+        direction, so pairing it with an aggressive learning rate leads to overshooting. Adam's per-element
+        adaptivity handles higher learning rates more gracefully.
     </p>
 </section>
 
-<!-- The Anomaly -->
-<section id="anomaly">
-    <h2>An Interesting Anomaly</h2>
+<!-- Notable Findings -->
+<section id="notable-findings">
+    <h2>Notable Findings</h2>
 
     <div class="anomaly">
         <p>
             <strong>Muon at lr=0.001 achieves the lowest validation loss (0.342) of any configuration</strong>&mdash;yet
-            its R&sup2; (0.8059) is not the highest. Adam at lr=0.003 has a higher validation loss (0.501) but a
-            higher R&sup2; (0.8062). How can a model with lower average error explain <em>less</em> variance?
+            its R&sup2; (0.8059) is not the highest. Adam at lr=0.003 has higher validation loss (0.501) but
+            higher R&sup2; (0.8062).
         </p>
     </div>
 
     <p>
-        This apparent contradiction arises because MSE loss and R&sup2; measure slightly different things.
-        Validation loss (MSE) measures the average squared prediction error. R&sup2; measures the fraction of
-        variance in the target explained by the model, normalized by the total variance of the target. When
-        the train/val split changes across seeds, the total variance of the validation set changes too,
-        making R&sup2; sensitive to the specific split in a way that raw MSE is not.
+        How can lower average prediction error yield less explained variance? The answer lies in what these
+        metrics measure. MSE (validation loss) captures average squared error. R&sup2; captures the fraction
+        of target variance explained, normalized by total variance&mdash;which varies across train/val splits
+        due to different random seeds.
     </p>
     <p>
-        More interestingly, this gap may reflect a genuine difference in <em>what</em> the optimizers learn.
-        Muon's solution appears to be better <strong>calibrated on average</strong> (lower MSE) but slightly
-        less <strong>discriminative at the extremes</strong> (lower R&sup2;). The orthogonalization may smooth
-        out the learned function, reducing outlier errors at the cost of slightly less sensitivity to
-        high-variance data points.
-    </p>
-    <p>
-        This is a genuinely interesting finding that warrants further investigation on larger-scale tasks
-        where calibration vs. discrimination trade-offs matter more.
+        More interestingly, this may reflect a genuine difference in what the optimizers learn. Muon's
+        solution appears better <strong>calibrated on average</strong> (lower MSE) but slightly less
+        <strong>discriminative at the extremes</strong> (lower R&sup2;). The orthogonalization may smooth
+        the learned function&mdash;reducing outlier errors at the cost of slightly less sensitivity to
+        high-variance data points. This is an implicit regularization effect worth investigating on tasks
+        where calibration matters more than raw discrimination.
     </p>
 </section>
 
@@ -337,32 +329,32 @@
     <h2>Conclusions</h2>
 
     <p>
-        <strong>Adam is the clear practical winner</strong> for this task. It matches or exceeds Muon's R&sup2;
-        at every learning rate, trains 4&ndash;6&times; faster, and is more stable across random seeds.
+        <strong>Adam is the clear practical winner</strong> for this task. It matches or exceeds Muon's
+        R&sup2; at every learning rate, trains 4&ndash;6&times; faster, and produces more stable results
+        across random seeds.
     </p>
-
     <p>
-        <strong>Muon is not without merit.</strong> At low learning rates, it matches Adam's R&sup2; exactly
-        while achieving lower validation loss&mdash;suggesting a better-calibrated solution. It also shows signs
-        of implicit regularization: higher training loss but lower validation loss, a pattern associated with
-        better generalization. These properties could become more significant on harder tasks where overfitting
-        is the primary concern.
+        <strong>But Muon is not without merit.</strong> At low learning rates, it matches Adam's R&sup2;
+        exactly while achieving lower validation loss&mdash;evidence of a better-calibrated solution.
+        It exhibits implicit regularization (higher training loss, lower validation loss), a property that
+        could prove valuable on harder tasks where overfitting is the primary concern. These are genuine,
+        interesting properties worth investigating further on larger models and more challenging domains.
     </p>
 
     <h3>Limitations</h3>
     <p>
-        This is a single tabular dataset (20K samples) with a small MLP (under 100K parameters), trained on CPU.
-        Muon was designed for large-scale language model pretraining with billions of parameters on GPU clusters.
-        These results say nothing about Muon's performance in its intended domain&mdash;they only test whether
-        its benefits generalize to a simpler regime. The answer is: <em>not yet clearly</em>, but with hints
-        of interesting properties.
+        This is a single tabular dataset (20K samples) with a small MLP (~100K parameters), trained on CPU.
+        Muon was designed for billion-parameter language model pretraining on GPU clusters. These results
+        test whether Muon generalizes to a simpler regime&mdash;the answer is "not clearly yet, but with
+        intriguing hints." A fair evaluation requires GPU hardware, larger models, and language modeling tasks.
     </p>
 
     <h3>What's Next</h3>
     <p>
-        To give Muon a fairer evaluation: test on GPU hardware (where its orthogonalization overhead is relatively
-        smaller), larger models (where spectral normalization matters more), and language modeling tasks (its intended
-        use case). The implicit regularization finding is worth pursuing on tasks where train/val gaps are larger.
+        Test Muon on GPU (where orthogonalization overhead is relatively smaller), scale up model size
+        (where spectral normalization of weight matrices matters more), and try language modeling tasks
+        (Muon's intended domain). The implicit regularization finding deserves further study on tasks
+        with larger train/validation gaps.
     </p>
 </section>
 
