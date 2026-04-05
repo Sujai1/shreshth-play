@@ -1,0 +1,8 @@
+{
+    "learning_rate": 0.01,
+    "epochs": 10,
+    "batch_size": 32,
+    "data_path": "data/sample.csv",
+    "model": "linear",
+    "seed": 42
+}
